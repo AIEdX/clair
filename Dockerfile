@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM quay.io/projectquay/golang:1.15 AS build
+ARG GO_VERSION=1.17
+FROM quay.io/projectquay/golang:${GO_VERSION} AS build
 WORKDIR /build/
 ADD . /build/
 ARG CLAIR_VERSION=dev
@@ -22,10 +23,11 @@ RUN go build \
 RUN go build\
   ./cmd/clairctl
 
+FROM registry.access.redhat.com/ubi8/ubi-minimal AS init
+RUN microdnf install --disablerepo=* --enablerepo=ubi-8-baseos --enablerepo=ubi-8-appstream podman-catatonit
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS final
-RUN microdnf install --disablerepo=* --enablerepo=ubi-8-baseos --enablerepo=ubi-8-appstream tar
-RUN curl -L -o /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 && chmod +x /usr/local/bin/dumb-init 
-ENTRYPOINT ["/usr/local/bin/dumb-init", "--", "/bin/clair"]
+ENTRYPOINT ["/usr/local/bin/catatonit", "--", "/bin/clair"]
 VOLUME /config
 EXPOSE 6060
 WORKDIR /run
@@ -33,5 +35,6 @@ ENV CLAIR_CONF=/config/config.yaml CLAIR_MODE=combo
 ENV SSL_CERT_DIR="/etc/ssl/certs:/etc/pki/tls/certs:/var/run/certs"
 USER nobody:nobody
 
+COPY --from=init /usr/libexec/catatonit/catatonit /usr/local/bin/catatonit
 COPY --from=build /build/clair /bin/clair
 COPY --from=build /build/clairctl /bin/clairctl

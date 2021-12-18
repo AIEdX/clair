@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-stomp/stomp"
 	"github.com/google/uuid"
+	"github.com/quay/clair/config"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/test/integration"
 	"github.com/quay/zlog"
@@ -82,7 +83,7 @@ func TestDirectDeliverer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := zlog.Test(context.Background(), t)
 			// deliverer test
-			conf := Config{
+			conf := config.STOMP{
 				Direct:      true,
 				Rollup:      tt.rollup,
 				Destination: queue,
@@ -112,7 +113,7 @@ func TestDirectDeliverer(t *testing.T) {
 			g := errgroup.Group{}
 			for i := 0; i < 4; i++ {
 				g.Go(func() error {
-					d, err := NewDirectDeliverer(conf)
+					d, err := NewDirectDeliverer(&conf)
 					if err != nil {
 						return fmt.Errorf("could not create deliverer: %v", err)
 					}

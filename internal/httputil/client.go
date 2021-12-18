@@ -1,10 +1,11 @@
-package config
+package httputil
 
 import (
 	"net/http"
 	"net/http/cookiejar"
 	"time"
 
+	"github.com/quay/clair/config"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
@@ -17,7 +18,7 @@ import (
 //
 // It returns an *http.Client and a boolean indicating whether the client is
 // configured for authentication, or an error that occurred during construction.
-func (cfg *Config) Client(next http.RoundTripper, cl *jwt.Claims) (c *http.Client, authed bool, err error) {
+func Client(next http.RoundTripper, cl *jwt.Claims, cfg *config.Config) (c *http.Client, authed bool, err error) {
 	if next == nil {
 		next = http.DefaultTransport.(*http.Transport).Clone()
 	}
@@ -38,9 +39,9 @@ func (cfg *Config) Client(next http.RoundTripper, cl *jwt.Claims) (c *http.Clien
 	switch {
 	case cl == nil: // Skip signing
 	case cfg.Auth.Keyserver != nil:
-		sk.Key = cfg.Auth.Keyserver.Intraservice
+		sk.Key = []byte(cfg.Auth.Keyserver.Intraservice)
 	case cfg.Auth.PSK != nil:
-		sk.Key = cfg.Auth.PSK.Key
+		sk.Key = []byte(cfg.Auth.PSK.Key)
 	default:
 	}
 	rt := &transport{

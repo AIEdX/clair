@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	golog "log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/quay/clair/config"
 	_ "github.com/quay/claircore/updater/defaults"
 	"github.com/quay/zlog"
 	"go.opentelemetry.io/otel/baggage"
@@ -17,10 +20,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	yaml "gopkg.in/yaml.v3"
 
-	"github.com/quay/clair/v4/config"
 	"github.com/quay/clair/v4/health"
 	"github.com/quay/clair/v4/httptransport"
 	"github.com/quay/clair/v4/initialize"
+	"github.com/quay/clair/v4/initialize/auto"
 	"github.com/quay/clair/v4/introspection"
 )
 
@@ -59,8 +62,9 @@ func main() {
 	if err != nil {
 		golog.Fatalf("failed to decode yaml config: %v", err)
 	}
-	conf.Mode = runMode.String()
-	err = config.Validate(&conf)
+	conf.Mode = runMode.Mode
+	// Grab the warnings to print after the logger is configured.
+	ws, err := config.Validate(&conf)
 	if err != nil {
 		golog.Fatalf("failed to validate config: %v", err)
 	}
@@ -75,6 +79,11 @@ func main() {
 	zlog.Info(ctx).
 		Str("version", Version).
 		Msg("starting")
+	for _, w := range ws {
+		zlog.Info(ctx).
+			AnErr("lint", &w).Send()
+	}
+	auto.PrintLogs(ctx)
 
 	// Some machinery for starting and stopping server goroutines:
 	down := &Shutdown{}
@@ -108,52 +117,46 @@ func main() {
 		if err != nil {
 			return fmt.Errorf("http transport configuration failed: %w", err)
 		}
+		l, err := net.Listen("tcp", conf.HTTPListenAddr)
+		if err != nil {
+			return fmt.Errorf("http transport configuration failed: %w", err)
+		}
+		if conf.TLS != nil {
+			cfg, err := conf.TLS.Config()
+			if err != nil {
+				return fmt.Errorf("tls configuration failed: %w", err)
+			}
+			cfg.NextProtos = []string{"h2"}
+			l = tls.NewListener(l, cfg)
+		}
 		down.Add(h.Server)
 		health.Ready()
-		if err := h.ListenAndServe(); err != http.ErrServerClosed {
+		if err := h.Serve(l); err != http.ErrServerClosed {
 			return fmt.Errorf("http transport failed to launch: %w", err)
 		}
 		return nil
 	})
 
 	// Signal handler goroutine.
-	srvs.Go(func() error {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
+	go func() {
+		ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 		defer func() {
-			signal.Stop(c)
-			close(c)
+			// Note that we're using a background context here, so that we get a
+			// full timeout if the signal handler has fired.
+			tctx, done := context.WithTimeout(context.Background(), 10*time.Second)
+			err := down.Shutdown(tctx)
+			if err != nil {
+				zlog.Error(ctx).Err(err).Msg("error shutting down server")
+			}
+			done()
+			stop()
 			zlog.Info(ctx).Msg("unregistered signal handler")
 		}()
 		zlog.Info(ctx).Msg("registered signal handler")
 		select {
-		case sig := <-c:
-			zlog.Info(ctx).
-				Stringer("signal", sig).
-				Msg("gracefully shutting down")
-			// Note that we're using the root context here, so that we get a
-			// full timeout if one errgroup goroutine returns uncleanly.
-			tctx, done := context.WithTimeout(ctx, 10*time.Second)
-			err := down.Shutdown(tctx)
-			done()
-			if err != nil {
-				zlog.Error(ctx).Err(err).Msg("error shutting down server")
-			}
+		case <-ctx.Done():
+			zlog.Info(ctx).Stringer("signal", os.Interrupt).Msg("gracefully shutting down")
 		case <-srvctx.Done():
-		}
-		return nil
-	})
-	// Spawn a goroutine outside to wait on the errgroup.
-	//
-	// This is needed to call shutdown and cause the servers to return when only
-	// one has returned an error.
-	go func() {
-		<-srvctx.Done()
-		tctx, done := context.WithTimeout(ctx, 10*time.Second)
-		err := down.Shutdown(tctx)
-		done()
-		if err != nil {
-			zlog.Error(ctx).Err(err).Msg("error shutting down server")
 		}
 	}()
 

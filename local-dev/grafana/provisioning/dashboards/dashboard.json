@@ -8,18 +8,27 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 1,
-  "iteration": 1625647457882,
+  "id": 162,
+  "iteration": 1637602132532,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -31,7 +40,7 @@
       "type": "row"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -102,25 +111,17 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(claircore_indexer_scanned_manifests{scanned_before=\"true\"}[$rate])",
+          "expr": "sum by (scanned_before) (rate(claircore_indexer_scanned_manifests[$rate]))",
           "interval": "",
-          "legendFormat": "scanned",
+          "legendFormat": "{{scanned_before}}",
           "refId": "A"
-        },
-        {
-          "exemplar": true,
-          "expr": "rate(claircore_indexer_scanned_manifests{scanned_before=\"false\"}[$rate])",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "not scanned",
-          "refId": "B"
         }
       ],
       "title": "Previously scanned",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -164,25 +165,17 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(claircore_indexer_scanned_manifests{scanned_before=\"true\"}[$rate])",
+          "expr": "sum by (scanned_before) (rate(claircore_indexer_scanned_manifests[$rate]))",
           "interval": "",
-          "legendFormat": "scanned",
+          "legendFormat": "{{scanned_before}}",
           "refId": "A"
-        },
-        {
-          "exemplar": true,
-          "expr": "rate(claircore_indexer_scanned_manifests{scanned_before=\"false\"}[$rate])",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "not scanned",
-          "refId": "B"
         }
       ],
       "title": "Previously scanned rate",
       "type": "piechart"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -272,7 +265,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "$datasource",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -285,7 +278,7 @@
       "type": "row"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -406,7 +399,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -535,7 +528,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -648,7 +641,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -720,6 +713,7 @@
         {
           "exemplar": true,
           "expr": "histogram_quantile($dbquantile, rate(claircore_vulnstore_get_duration_seconds_bucket[$rate]))",
+          "hide": false,
           "interval": "",
           "legendFormat": "VulnStoreGet: {{instance }}: {{ query }}",
           "refId": "A"
@@ -761,21 +755,7 @@
       "type": "timeseries"
     },
     {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 2,
-      "panels": [],
-      "title": "API Requests",
-      "type": "row"
-    },
-    {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -830,7 +810,395 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 34
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(claircore_vulnstore_gc_total[$rate])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "GarbageCollection: {{instance }}: {{ query }}",
+          "refId": "E"
+        }
+      ],
+      "title": "Database query count GC (matcher)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 44,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($dbquantile, rate(claircore_vulnstore_gc_duration_seconds_bucket[$rate]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "UpdateVulnerabilities: {{instance }}: {{ query }}",
+          "refId": "F"
+        }
+      ],
+      "title": "Database query duration GC (matcher) (p$dbquantile)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "id": 36,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(clair_notifier_created_total[$rate])",
+          "interval": "",
+          "legendFormat": "CreatedTotal: {{instance }}: {{ query }}",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(clair_notifier_failed_total[$rate])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierFailed: {{instance }}: {{ query }}",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(clair_notifier_putreceipt_total[$rate])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierPutReceipt: {{instance }}: {{ query }}",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(clair_notifier_receiptbyuoid_total[$rate])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierReceiptByUOID: {{instance }}: {{ query }}",
+          "refId": "D"
+        }
+      ],
+      "title": "Database query count (notifier)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "id": 38,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($dbquantile, rate(clair_notifier_created_duration_seconds_bucket[$rate]))",
+          "interval": "",
+          "legendFormat": "CreatedTotal: {{instance }}: {{ query }}",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($dbquantile, rate(clair_notifier_failed_duration_seconds_bucket[$rate]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierFailed: {{instance }}: {{ query }}",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($dbquantile, rate(clair_notifier_putreceipt_duration_seconds_bucket[$rate]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierPutReceipt: {{instance }}: {{ query }}",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($dbquantile, rate(clair_notifier_receiptbyuoid_duration_seconds_bucket[$rate]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "NotifierReceiptByUOID: {{instance }}: {{ query }}",
+          "refId": "D"
+        }
+      ],
+      "title": "Database query duration (notifier) (p$dbquantile)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "datasource": "$datasource",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 2,
+      "panels": [],
+      "title": "API Requests",
+      "type": "row"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 51
       },
       "id": 4,
       "options": {
@@ -853,11 +1221,11 @@
           "refId": "A"
         }
       ],
-      "title": "Vulnerability Report Requests",
+      "title": "Vulnerability Report Requests / $rate",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -912,7 +1280,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 51
       },
       "id": 15,
       "options": {
@@ -940,7 +1308,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -995,7 +1363,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 43
+        "y": 59
       },
       "id": 7,
       "options": {
@@ -1018,11 +1386,11 @@
           "refId": "A"
         }
       ],
-      "title": "Create Index Report Requests",
+      "title": "Create Index Report Requests / $rate",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -1078,7 +1446,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 43
+        "y": 59
       },
       "id": 14,
       "options": {
@@ -1105,7 +1473,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1160,7 +1528,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 51
+        "y": 67
       },
       "id": 6,
       "options": {
@@ -1179,15 +1547,15 @@
           "expr": "sum by (code) (rate(clair_http_indexer_api_v1_index_state_request_total[$rate]))",
           "instant": false,
           "interval": "",
-          "legendFormat": "Status {{ code }} ",
+          "legendFormat": "Status {{code}}",
           "refId": "A"
         }
       ],
-      "title": "Indexer State Requests",
+      "title": "Indexer State Requests / $rate",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1243,7 +1611,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 51
+        "y": 67
       },
       "id": 13,
       "options": {
@@ -1270,7 +1638,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1325,7 +1693,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 59
+        "y": 75
       },
       "id": 5,
       "options": {
@@ -1348,11 +1716,11 @@
           "refId": "A"
         }
       ],
-      "title": "Index Report Requests",
+      "title": "Index Report Requests / $rate",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1407,7 +1775,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 59
+        "y": 75
       },
       "id": 16,
       "options": {
@@ -1434,21 +1802,7 @@
       "type": "timeseries"
     },
     {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 67
-      },
-      "id": 9,
-      "panels": [],
-      "title": "Memory metrics",
-      "type": "row"
-    },
-    {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1503,7 +1857,349 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 68
+        "y": 83
+      },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum by (code) (rate(clair_http_notifier_api_v1_notification_request_total{method=\"get\"}[$rate]))",
+          "instant": false,
+          "interval": "1",
+          "legendFormat": "Status {{ code }} ",
+          "refId": "A"
+        }
+      ],
+      "title": "Get Notifications Requests / $rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 83
+      },
+      "id": 40,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($apiquantile, rate(clair_http_notifier_api_v1_notification_request_duration_seconds_bucket[$rate]))",
+          "instant": false,
+          "interval": "1",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Get Notification Request Latency (p$apiquantile)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 91
+      },
+      "id": 39,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum by (code) (rate(clair_http_notifier_api_v1_notification_request_total{method=\"delete\"}[$rate]))",
+          "instant": false,
+          "interval": "1",
+          "legendFormat": "Status {{ code }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Delete Notification Requests / $rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 91
+      },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile($apiquantile, rate(clair_http_notifier_api_v1_notification_request_duration_seconds_bucket[$rate]))",
+          "instant": false,
+          "interval": "1",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Delete Notification Request Latency (p$apiquantile)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "datasource": "$datasource",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 99
+      },
+      "id": 9,
+      "panels": [],
+      "title": "Memory metrics",
+      "type": "row"
+    },
+    {
+      "datasource": "$datasource",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 100
       },
       "id": 11,
       "options": {
@@ -1519,7 +2215,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "go_goroutines",
+          "expr": "sum by (job)(go_goroutines)",
           "interval": "",
           "legendFormat": "{{ job }}",
           "refId": "A"
@@ -1529,7 +2225,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1585,7 +2281,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 68
+        "y": 100
       },
       "id": 12,
       "options": {
@@ -1601,7 +2297,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "go_memstats_heap_inuse_bytes",
+          "expr": "sum by (job)(go_memstats_heap_inuse_bytes)",
           "interval": "",
           "legendFormat": "{{ job }}",
           "refId": "A"
@@ -1611,8 +2307,8 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "10s",
-  "schemaVersion": 30,
+  "refresh": false,
+  "schemaVersion": 31,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -1697,8 +2393,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "0.90",
-          "value": "0.90"
+          "text": "0.95",
+          "value": "0.95"
         },
         "description": null,
         "error": null,
@@ -1709,12 +2405,12 @@
         "name": "dbquantile",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "0.95",
             "value": "0.95"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.90",
             "value": "0.90"
           },
@@ -1743,8 +2439,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "0.95",
-          "value": "0.95"
+          "text": "0.20",
+          "value": "0.20"
         },
         "description": null,
         "error": null,
@@ -1755,7 +2451,7 @@
         "name": "apiquantile",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "0.95",
             "value": "0.95"
           },
@@ -1770,7 +2466,7 @@
             "value": "0.5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.20",
             "value": "0.20"
           },
@@ -1784,11 +2480,32 @@
         "queryValue": "",
         "skipUrlSync": false,
         "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "/(^clair|^app-sre-stage-01|^Prometheus$)(?!.*cluster)/",
+        "skipUrlSync": false,
+        "type": "datasource"
       }
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},

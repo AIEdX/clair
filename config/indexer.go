@@ -1,13 +1,9 @@
 package config
 
-import (
-	"fmt"
-
-	"gopkg.in/yaml.v3"
-)
-
 // Indexer provides Clair Indexer node configuration
 type Indexer struct {
+	// Scanner allows for passing configuration options to layer scanners.
+	Scanner ScannerConfig `yaml:"scanner" json:"scanner"`
 	// A Postgres connection string.
 	//
 	// formats
@@ -21,7 +17,7 @@ type Indexer struct {
 	// This value tunes how often a waiting Indexer will poll for the lock.
 	// TODO: Move to async operating mode
 	ScanLockRetry int `yaml:"scanlock_retry" json:"scanlock_retry"`
-	// A positive values represeting quantity.
+	// A positive values representing quantity.
 	//
 	// Indexers will index a Manifest's layers concurrently.
 	// This value tunes the number of layers an Indexer will scan in parallel.
@@ -35,28 +31,66 @@ type Indexer struct {
 	//
 	// Whether Indexer nodes handle migrations to their database.
 	Migrations bool `yaml:"migrations" json:"migrations"`
-	// Scanner allows for passing configuration options to layer scanners.
-	Scanner ScannerConfig `yaml:"scanner" json:"scanner"`
 	// Airgap disables scanners that have signaled they expect to talk to the
 	// Internet.
 	Airgap bool `yaml:"airgap" json:"airgap"`
 }
 
-func (i *Indexer) Validate(combo bool) error {
-	const (
-		DefaultScanLockRetry = 1
-	)
-	if i.ConnString == "" {
-		return fmt.Errorf("indexer mode requires a database connection string")
+func (i *Indexer) validate(mode Mode) (ws []Warning, err error) {
+	const DefaultScanLockRetry = 1
+	if mode != ComboMode && mode != IndexerMode {
+		return nil, nil
 	}
 	if i.ScanLockRetry == 0 {
 		i.ScanLockRetry = DefaultScanLockRetry
 	}
-	return nil
+	return i.lint()
 }
 
+func (i *Indexer) lint() (ws []Warning, err error) {
+	ws, err = checkDSN(i.ConnString)
+	if err != nil {
+		return ws, err
+	}
+	for i := range ws {
+		ws[i].path = ".connstring"
+	}
+	if i.ScanLockRetry > 10 { // Guess at what a "large" value is here.
+		ws = append(ws, Warning{
+			path: ".scanlock_retry",
+			msg:  `large values will increase latency`,
+		})
+	}
+	switch {
+	case i.LayerScanConcurrency == 0:
+		// Skip, autosized.
+	case i.LayerScanConcurrency < 4:
+		ws = append(ws, Warning{
+			path: ".layer_scan_concurrency",
+			msg:  `small values will limit resource utilization and increase latency`,
+		})
+	case i.LayerScanConcurrency > 32:
+		ws = append(ws, Warning{
+			path: ".layer_scan_concurrency",
+			msg:  `large values may exceed resource quotas`,
+		})
+	}
+	if i.IndexReportRequestConcurrency < 1 {
+		// Remove this lint if we come up with a heuristic instead of just
+		// "unlimited".
+		ws = append(ws, Warning{
+			path: ".index_report_request_concurrency",
+			msg:  `unlimited concurrent requests may exceed resource quotas`,
+		})
+	}
+
+	return ws, nil
+}
+
+// ScannerConfig is the object consulted for configuring the various types of
+// scanners.
 type ScannerConfig struct {
-	Package map[string]yaml.Node `yaml:"package" json:"package"`
-	Dist    map[string]yaml.Node `yaml:"dist" json:"dist"`
-	Repo    map[string]yaml.Node `yaml:"repo" json:"repo"`
+	Package map[string]interface{} `yaml:"package" json:"package"`
+	Dist    map[string]interface{} `yaml:"dist" json:"dist"`
+	Repo    map[string]interface{} `yaml:"repo" json:"repo"`
 }

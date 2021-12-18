@@ -44,26 +44,26 @@ jobs:
   tidy:
     name: Tidy
     runs-on: ubuntu-latest
-    container: quay.io/projectquay/golang:1.15
+    strategy:
+      matrix:
+        go: ['1.16']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Go Tidy
-        run: go mod tidy
-      - name: Git Diff
-        run: git diff --exit-code
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/go-tidy
+        with:
+          go: ${{ matrix.go }}
 
   documentation:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup
-        uses: peaceiris/actions-mdbook@v1
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/documentation
         with:
-          mdbook-version: 'latest'
-      - run: mdbook build
+          publish: false
 
   tests:
     name: Tests
@@ -94,16 +94,14 @@ jobs:
 
     strategy:
       matrix:
-        go: ['1.15', '1.16']
+        go: ['1.16', '1.17']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Go Dependencies
-        run: go mod vendor
-      - name: Tests
-        run: go test -tags integration ./...
-      - name: Create Artifact on Failure
-        uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/go-cache
+        with:
+          go: ${{ matrix.go }}
+      - run: go test -tags integration ./...
+      - uses: actions/upload-artifact@v2
         if: failure()
         with:
           name: workspace-${{matrix.go}}
