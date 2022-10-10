@@ -62,7 +62,6 @@ indexer:
     airgap: false
 matcher:
     connstring: ""
-    max_conn_pool: 0
     indexer_addr: ""
     migrations: false
     period: ""
@@ -111,6 +110,17 @@ metrics:
 Note: the above just lists every key for completeness. Copy-pasting the above as
 a starting point for configuration will result in some options not having their
 defaults set normally.
+<!---
+The following are purposefully omitted. See comments in the config package for
+more information.
+
+# `$.tls.root_ca`
+# `$.updaters.filter`
+# `$.notifier.webhook.signed`
+# `$.auth.keyserver`
+# `$.auth.keyserver.api`
+# `$.auth.keyserver.intraservice`
+-->
 
 ### `$.http_listen_addr`
 A string in `<host>:<port>` format where `<host>` can be an empty string.
@@ -148,6 +158,11 @@ A key file for the TLS certificate. Encryption is not supported on the key.
 ### `$.indexer`
 Indexer provides Clair Indexer node configuration.
 
+#### `$.indexer.airgap`
+Boolean.
+
+Disables scanners that have signaled they expect to talk to the Internet.
+
 #### `$.indexer.connstring`
 A Postgres connection string.
 
@@ -155,6 +170,17 @@ Accepts a format as a url (e.g.,
 `postgres://pqgotest:password@localhost/pqgotest?sslmode=verify-full`)
 or a libpq connection string (e.g.,
 `user=pqgotest dbname=pqgotest sslmode=verify-full`).
+
+#### `$.indexer.index_report_request_concurrency`
+Integer.
+
+Rate limits the number of index report creation requests.
+
+Setting this to 0 will attempt to auto-size this value. Setting a negative value
+means "unlimited." The auto-sizing is a multiple of the number of available
+cores.
+
+The API will return a 429 status code if concurrency is exceeded.
 
 #### `$.indexer.scanlock_retry`
 A positive integer representing seconds.
@@ -175,14 +201,28 @@ A boolean value.
 Whether Indexer nodes handle migrations to their database.
 
 #### `$.indexer.scanner`
-A map with the name of a particular scanner and arbitrary yaml as a value.
+Indexer configurations.
 
 Scanner allows for passing configuration options to layer scanners.
 The scanner will have this configuration passed to it on construction if
 designed to do so.
 
+#### `$.indexer.scanner.dist`
+A map with the name of a particular scanner and arbitrary yaml as a value.
+
+#### `$.indexer.scanner.package`
+A map with the name of a particular scanner and arbitrary yaml as a value.
+
+#### `$.indexer.scanner.repo`
+A map with the name of a particular scanner and arbitrary yaml as a value.
+
 ### `$.matcher`
 Matcher provides Clair matcher node configuration.
+
+#### `$.matcher.cache_age`
+Duration string.
+
+Controls how long clients should be hinted to cache responses for.
 
 #### `$.matcher.connstring`
 A Postgres connection string.
@@ -192,13 +232,15 @@ Accepts a format as a url (e.g.,
 or a libpq connection string (e.g.,
 `user=pqgotest dbname=pqgotest sslmode=verify-full`).
 
-
 #### `$.matcher.max_conn_pool`
 A positive integer limiting the database connection pool size.
 
 Clair allows for a custom connection pool size.
 This number will directly set how many active database
 connections are allowed concurrently.
+
+This parameter will be ignored in a future version.
+Users should configure this through the connection string.
 
 #### `$.matcher.indexer_addr`
 A string in `<host>:<port>` format where `<host>` can be an empty string.
@@ -410,7 +452,7 @@ bool value
 
 Whether the configured queue uses an auto_delete policy.
 
-#### `$.notifier.amqp.exchange.routing_key`
+#### `$.notifier.amqp.routing_key`
 string value
 
 The name of the routing key each notification will be sent with.
@@ -499,15 +541,15 @@ string value
 
 The filesystem path where a tls private key can be read.
 
-#### `$.notifier.stomp.tls.user`
-Configures login information for connecting to a STOMP broker.
+#### `$.notifier.stomp.user`
+Configures login details for the STOMP broker.
 
-#### `$.notifier.stomp.tls.login`
+#### `$.notifier.stomp.user.login`
 string value
 
 The STOMP login to connect with.
 
-#### `$.notifier.stomp.tls.passcode`
+#### `$.notifier.stomp.user.passcode`
 string value
 
 The STOMP passcode to connect with.
@@ -515,7 +557,8 @@ The STOMP passcode to connect with.
 ### `$.auth`
 Defines ClairV4's external and intra-service JWT based authentication.
 
-If multiple auth mechanisms are defined, the Keyserver is preferred.
+If multiple auth mechanisms are defined, Clair will pick one. Currently, there
+are not multiple mechanisms.
 
 ### `$.auth.psk`
 Defines preshared key authentication.
@@ -531,19 +574,6 @@ a list of string value
 
 A list of JWT issuers to verify. An empty list will accept any issuer in a
 JWT claim.
-
-### `$.auth.keyserver`
-Defines Quay keyserver authentication.
-
-#### `$.auth.keyserver.api`
-a string value
-
-The API where Quay Keyserver can be reached.
-
-#### `$.auth.keyserver.intraservice`
-a string value
-
-A key shared between all Clair nodes for intra-service JWT authentication.
 
 ### `$.trace`
 Defines distributed tracing configuration based on OpenTelemetry.
@@ -580,7 +610,7 @@ An address in `<host>:<post>` syntax where traces can be submitted.
 #### `$.trace.jaeger.collector.username`
 a string value
 
-#### `$.trace.jaeger.collector.passwordd`
+#### `$.trace.jaeger.collector.password`
 a string value
 
 #### `$.trace.jaeger.service_name`

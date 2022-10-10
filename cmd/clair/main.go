@@ -15,8 +15,6 @@ import (
 	"github.com/quay/clair/config"
 	_ "github.com/quay/claircore/updater/defaults"
 	"github.com/quay/zlog"
-	"go.opentelemetry.io/otel/baggage"
-	"go.opentelemetry.io/otel/label"
 	"golang.org/x/sync/errgroup"
 	yaml "gopkg.in/yaml.v3"
 
@@ -37,19 +35,48 @@ const (
 
 func main() {
 	// parse conf from cli
-	var (
-		confFile ConfValue
-		conf     config.Config
-		runMode  ConfMode
-	)
-	confFile.Set(os.Getenv(envConfig))
-	runMode.Set(os.Getenv(envMode))
-	flag.Var(&confFile, "conf", "The file system path to Clair's config file.")
-	flag.Var(&runMode, "mode", "The operation mode for this server.")
+	var conf config.Config
+	flag.String("conf", "", "The file system path to Clair's config file.")
+	flag.String("mode", "", "The operation mode for this server, will default to combo.")
 	flag.Parse()
-	if confFile.String() == "" {
-		golog.Fatalf("must provide a -conf flag or set %q in the environment", envConfig)
-	}
+	flag.VisitAll(func(f *flag.Flag) {
+		fv := f.Value.(flag.Getter).Get().(string)
+		var key string
+		switch f.Name {
+		case "conf":
+			key = envConfig
+		case "mode":
+			key = envMode
+		}
+		v, ok := os.LookupEnv(key)
+		if fv == "" && !ok {
+			golog.Fatalf("must provide a -%s value or set %q in the environment", f.Name, key)
+		}
+		if fv == "" && ok {
+			fv = v
+		}
+		switch f.Name {
+		case "conf":
+			cf, err := os.Open(fv)
+			if err != nil {
+				golog.Fatalf("failed to open config file: %v", err)
+			}
+			defer cf.Close()
+			if err := yaml.NewDecoder(cf).Decode(&conf); err != nil {
+				golog.Fatalf("failed to decode yaml config: %v", err)
+			}
+		case "mode":
+			if fv == "" {
+				fv = "combo"
+			}
+			m, err := config.ParseMode(fv)
+			if err != nil {
+				golog.Fatalf("bad mode %q: %v", fv, err)
+			}
+			conf.Mode = m
+		}
+	})
+
 	fail := false
 	defer func() {
 		if fail {
@@ -57,12 +84,6 @@ func main() {
 		}
 	}()
 
-	// validate config
-	err := yaml.NewDecoder(confFile.file).Decode(&conf)
-	if err != nil {
-		golog.Fatalf("failed to decode yaml config: %v", err)
-	}
-	conf.Mode = runMode.Mode
 	// Grab the warnings to print after the logger is configured.
 	ws, err := config.Validate(&conf)
 	if err != nil {
@@ -75,7 +96,7 @@ func main() {
 	if err := initialize.Logging(ctx, &conf); err != nil {
 		golog.Fatalf("failed to set up logging: %v", err)
 	}
-	ctx = baggage.ContextWithValues(ctx, label.String("component", "main"))
+	ctx = zlog.ContextWithValues(ctx, "component", "main")
 	zlog.Info(ctx).
 		Str("version", Version).
 		Msg("starting")

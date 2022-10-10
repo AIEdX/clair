@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG GO_VERSION=1.17
+ARG GO_VERSION=1.18
 FROM quay.io/projectquay/golang:${GO_VERSION} AS build
 WORKDIR /build/
 ADD . /build/
 ARG CLAIR_VERSION=dev
 RUN go build \
-  -ldflags="-X main.Version=${CLAIR_VERSION}" \
+  -trimpath -ldflags="-s -w -X main.Version=${CLAIR_VERSION}" \
   ./cmd/clair
-RUN go build\
+RUN go build -trimpath \
   ./cmd/clairctl
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS init
-RUN microdnf install --disablerepo=* --enablerepo=ubi-8-baseos --enablerepo=ubi-8-appstream podman-catatonit
+RUN microdnf install --disablerepo=* --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms podman-catatonit
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS final
 ENTRYPOINT ["/usr/local/bin/catatonit", "--", "/bin/clair"]

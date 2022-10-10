@@ -12,6 +12,15 @@ on:
       - release-4.*
 
 jobs:
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      go_versions: ${{ steps.config.outputs.go_versions }}
+    steps:
+      - id: config
+        run: |
+          echo '::set-output name=go_versions::["1.17", "1.18"]'
+
   commit-check:
     name: Commit Check
     runs-on: ubuntu-latest
@@ -33,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: gen api reference
         run: |
           npx widdershins --search false --language_tabs 'python:Python' 'go:Golang' 'javascript:Javascript' --summary ./openapi.yaml -o ./Documentation/reference/api.md
@@ -43,15 +52,17 @@ jobs:
 
   tidy:
     name: Tidy
+    needs: ['config']
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ['1.16']
+        go:
+          - ${{ fromJSON(needs.config.outputs.go_versions)[0] }}
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/go-tidy
         with:
           go: ${{ matrix.go }}
@@ -60,13 +71,14 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/documentation
         with:
           publish: false
 
   tests:
     name: Tests
+    needs: ['config']
     runs-on: ubuntu-latest
     container: quay.io/projectquay/golang:${{ matrix.go }}
     env:
@@ -94,14 +106,14 @@ jobs:
 
     strategy:
       matrix:
-        go: ['1.16', '1.17']
+        go: ${{ fromJSON(needs.config.outputs.go_versions) }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/go-cache
         with:
           go: ${{ matrix.go }}
       - run: go test -tags integration ./...
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: workspace-${{matrix.go}}

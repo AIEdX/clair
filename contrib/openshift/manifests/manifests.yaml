@@ -39,6 +39,7 @@ objects:
             service: indexer
             app: clair
         spec:
+          serviceAccountName: ${SERVICE_ACCOUNT}
           volumes:
             - name: clair-config
               secret:
@@ -52,7 +53,10 @@ objects:
                 requests:
                   cpu: ${{INDEXER_CPU_REQS}}
                   memory: ${{INDEXER_MEM_REQS}}
-              command: [clair]
+              command:
+                - sh
+                - '-c'
+                - rm -rf /tmp/sha* /tmp/fetch.* /tmp/rpmscanner.* && exec clair
               env:
                 - name: CLAIR_CONF
                   value: '/etc/clair/config.yaml'
@@ -70,25 +74,19 @@ objects:
                   port: ${{HEALTH_PORT}}
               readinessProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
               startupProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
+                  failureThreshold: 400
+                  periodSeconds: 10
               volumeMounts:
                 - name: clair-config
                   mountPath: /etc/clair
                 - name: indexer-layer-storage
                   mountPath: /tmp
-          initContainers:
-            - name: init-wipe-vpc
-              image: ${UBI_IMAGE}:${UBI_IMAGE_TAG}
-              command: ['sh', '-c', "rm -rf /tmp/*"]
-              volumeMounts:
-                - name: indexer-layer-storage
-                  mountPath: /tmp
-
 
   #
   # matcher deployment
@@ -113,6 +111,7 @@ objects:
             service: matcher
             app: clair
         spec:
+          serviceAccountName: ${SERVICE_ACCOUNT}
           volumes:
             - name: clair-config
               secret:
@@ -144,12 +143,14 @@ objects:
                   port: ${{HEALTH_PORT}}
               readinessProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
               startupProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
+                  failureThreshold: 400
+                  periodSeconds: 10
               volumeMounts:
                 - name: clair-config
                   mountPath: /etc/clair
@@ -176,6 +177,7 @@ objects:
             service: notifier
             app: clair
         spec:
+          serviceAccountName: ${SERVICE_ACCOUNT}
           volumes:
             - name: clair-config
               secret:
@@ -207,12 +209,14 @@ objects:
                   port: ${{HEALTH_PORT}}
               readinessProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
               startupProbe:
                 httpGet:
-                  path: ${{HEALTH_PATH}}
+                  path: ${{READY_PATH}}
                   port: ${{HEALTH_PORT}}
+                  failureThreshold: 400
+                  periodSeconds: 10
               volumeMounts:
                 - name: clair-config
                   mountPath: /etc/clair
@@ -291,6 +295,16 @@ objects:
       selector:
         service: notifier
         app: clair
+  #
+  # service account
+  #
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: ${SERVICE_ACCOUNT}
+    imagePullSecrets:
+      - name: quay.io
+
 parameters:
   #
   # indexer params
@@ -358,12 +372,6 @@ parameters:
   - name: IMAGE_TAG
     value: "latest"
     displayName: the image tag of clair v4 to deploy
-  - name: UBI_IMAGE
-    value: "quay.io/app-sre/ubi8-ubi-minimal"
-    displayName: the image of UBI to deploy
-  - name: UBI_IMAGE_TAG
-    value: "8.5-204"
-    displayName: the image tag of UBI to deploy
   - name: HTTP_TRANSPORT_PORT
     value: "8080"
     displayName: http port where clair's main functionality is provided
@@ -373,9 +381,16 @@ parameters:
   - name: HEALTH_PATH
     value: "/healthz"
     displayName: the http path to clair's health check endpoint
+  - name: READY_PATH
+    value: "/readyz"
+    displayName: the http path to clair's ready endpoint
   - name: HEALTH_PORT
     value: "8089"
     displayName: the port to clair's health check endpoint
   - name: STORAGE_CLASS_NAME
     value: "gp2"
     displayName: the storage class to use when creating VPCs
+  - name: SERVICE_ACCOUNT
+    value: "clair"
+    displayName: clair service account
+    description: name of the service account to use for API interaction

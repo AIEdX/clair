@@ -11,34 +11,33 @@ import (
 	"github.com/quay/zlog"
 	othttp "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/baggage"
-	"go.opentelemetry.io/otel/label"
+	"golang.org/x/sync/semaphore"
 
 	clairerror "github.com/quay/clair/v4/clair-error"
 	"github.com/quay/clair/v4/indexer"
 	"github.com/quay/clair/v4/matcher"
 	intromw "github.com/quay/clair/v4/middleware/introspection"
-	"github.com/quay/clair/v4/middleware/rate"
-	notifier "github.com/quay/clair/v4/notifier/service"
+	"github.com/quay/clair/v4/notifier"
 )
 
 const (
-	apiRoot                 = "/api/v1/"
-	indexerRoot             = "/indexer"
-	matcherRoot             = "/matcher"
-	notifierRoot            = "/notifier"
-	internalRoot            = apiRoot + "internal/"
-	IndexAPIPath            = indexerRoot + apiRoot + "index_report"
-	IndexReportAPIPath      = indexerRoot + apiRoot + "index_report/"
-	IndexStateAPIPath       = indexerRoot + apiRoot + "index_state"
-	AffectedManifestAPIPath = indexerRoot + internalRoot + "affected_manifest/"
-	VulnerabilityReportPath = matcherRoot + apiRoot + "vulnerability_report/"
-	UpdateOperationAPIPath  = matcherRoot + internalRoot + "update_operation/"
-	UpdateDiffAPIPath       = matcherRoot + internalRoot + "update_diff/"
-	NotificationAPIPath     = notifierRoot + apiRoot + "notification/"
-	KeysAPIPath             = notifierRoot + apiRoot + "services/notifier/keys"
-	KeyByIDAPIPath          = notifierRoot + apiRoot + "services/notifier/keys/"
-	OpenAPIV1Path           = "/openapi/v1"
+	apiRoot                      = "/api/v1/"
+	indexerRoot                  = "/indexer"
+	matcherRoot                  = "/matcher"
+	notifierRoot                 = "/notifier"
+	internalRoot                 = apiRoot + "internal/"
+	IndexAPIPath                 = indexerRoot + apiRoot + "index_report"
+	IndexReportAPIPath           = indexerRoot + apiRoot + "index_report/"
+	IndexStateAPIPath            = indexerRoot + apiRoot + "index_state"
+	AffectedManifestAPIPath      = indexerRoot + internalRoot + "affected_manifest/"
+	VulnerabilityReportPath      = matcherRoot + apiRoot + "vulnerability_report/"
+	UpdateOperationAPIPath       = matcherRoot + internalRoot + "update_operation"
+	UpdateOperationDeleteAPIPath = matcherRoot + internalRoot + "update_operation/"
+	UpdateDiffAPIPath            = matcherRoot + internalRoot + "update_diff"
+	NotificationAPIPath          = notifierRoot + apiRoot + "notification/"
+	KeysAPIPath                  = notifierRoot + apiRoot + "services/notifier/keys"
+	KeyByIDAPIPath               = notifierRoot + apiRoot + "services/notifier/keys/"
+	OpenAPIV1Path                = "/openapi/v1"
 )
 
 // Server is the primary http server Clair exposes its functionality on.
@@ -72,9 +71,7 @@ func New(ctx context.Context, conf config.Config, indexer indexer.Service, match
 		notifier: notifier,
 		traceOpt: othttp.WithTracerProvider(otel.GetTracerProvider()),
 	}
-	ctx = baggage.ContextWithValues(ctx,
-		label.String("component", "httptransport/New"),
-	)
+	ctx = zlog.ContextWithValues(ctx, "component", "httptransport/New")
 
 	if err := t.configureDiscovery(ctx); err != nil {
 		zlog.Warn(ctx).Err(err).Msg("configuring openapi discovery failed")
@@ -150,9 +147,10 @@ func (t *Server) configureComboMode(ctx context.Context) error {
 		return clairerror.ErrNotInitialized{Msg: "could not configure matcher: " + err.Error()}
 	}
 
-	err = t.configureNotifierMode(ctx)
-	if err != nil {
-		return clairerror.ErrNotInitialized{Msg: "could not configure notifier: " + err.Error()}
+	if t.notifier != nil {
+		if err := t.configureNotifierMode(ctx); err != nil {
+			return clairerror.ErrNotInitialized{Msg: "could not configure notifier: " + err.Error()}
+		}
 	}
 
 	return nil
@@ -161,54 +159,48 @@ func (t *Server) configureComboMode(ctx context.Context) error {
 // ConfigureIndexerMode configures the HttpTransport for IndexerMode.
 //
 // This mode runs only an Indexer in a single process.
-func (t *Server) configureIndexerMode(_ context.Context) error {
+func (t *Server) configureIndexerMode(ctx context.Context) error {
 	// requires only indexer service
 	if t.indexer == nil {
 		return clairerror.ErrNotInitialized{Msg: "IndexerMode requires an indexer service"}
 	}
+	prefix := indexerRoot + apiRoot
 
-	ratelimitMW := rate.NewRateLimitMiddleware(t.conf.Indexer.IndexReportRequestConcurrency)
-
-	t.Handle(AffectedManifestAPIPath,
-		intromw.InstrumentedHandler(AffectedManifestAPIPath, t.traceOpt, AffectedManifestHandler(t.indexer)))
-
-	t.Handle(IndexAPIPath,
-		intromw.InstrumentedHandler(IndexAPIPath, t.traceOpt, ratelimitMW.Handler(IndexAPIPath, IndexHandler(t.indexer))))
-
-	t.Handle(IndexReportAPIPath,
-		intromw.InstrumentedHandler(IndexReportAPIPath+"GET", t.traceOpt, IndexReportHandler(t.indexer)))
-
-	t.Handle(IndexStateAPIPath,
-		intromw.InstrumentedHandler(IndexStateAPIPath, t.traceOpt, IndexStateHandler(t.indexer)))
-
+	v1, err := NewIndexerV1(ctx, prefix, t.indexer, t.traceOpt)
+	if err != nil {
+		return fmt.Errorf("indexer configuration: %w", err)
+	}
+	var sem *semaphore.Weighted
+	if ct := t.conf.Indexer.IndexReportRequestConcurrency; ct > 0 {
+		sem = semaphore.NewWeighted(int64(ct))
+	}
+	rl := &limitHandler{
+		Check: func(r *http.Request) (*semaphore.Weighted, string) {
+			if r.Method != http.MethodPost && r.URL.Path != IndexAPIPath {
+				return nil, ""
+			}
+			// Nil if the relevant config option isn't set.
+			return sem, IndexAPIPath
+		},
+		Next: v1,
+	}
+	t.Handle(prefix, rl)
 	return nil
 }
 
 // ConfigureMatcherMode configures HttpTransport for MatcherMode.
 //
 // This mode runs only a Matcher in a single process.
-func (t *Server) configureMatcherMode(_ context.Context) error {
+func (t *Server) configureMatcherMode(ctx context.Context) error {
 	// requires both an indexer and matcher service. indexer service
 	// is assumed to be a remote call over the network
 	if t.indexer == nil || t.matcher == nil {
 		return clairerror.ErrNotInitialized{Msg: "MatcherMode requires both indexer and matcher services"}
 	}
+	prefix := matcherRoot + apiRoot
+	v1 := NewMatcherV1(ctx, prefix, t.matcher, t.indexer, t.conf.Matcher.CacheAge, t.traceOpt)
 
-	reportHandler := &VulnerabilityReportHandler{
-		Indexer: t.indexer,
-		Matcher: t.matcher,
-		Cache:   t.conf.Matcher.CacheAge,
-	}
-
-	t.Handle(VulnerabilityReportPath,
-		intromw.InstrumentedHandler(VulnerabilityReportPath, t.traceOpt, reportHandler))
-
-	t.Handle(UpdateOperationAPIPath,
-		intromw.InstrumentedHandler(UpdateOperationAPIPath, t.traceOpt, UpdateOperationHandler(t.matcher)))
-
-	t.Handle(UpdateDiffAPIPath,
-		intromw.InstrumentedHandler(UpdateDiffAPIPath, t.traceOpt, UpdateDiffHandler(t.matcher)))
-
+	t.Handle(prefix, v1)
 	return nil
 }
 
@@ -216,21 +208,16 @@ func (t *Server) configureMatcherMode(_ context.Context) error {
 //
 // This mode runs only a Notifier in a single process.
 func (t *Server) configureNotifierMode(ctx context.Context) error {
-	// requires both an indexer and matcher service. indexer service
-	// is assumed to be a remote call over the network
 	if t.notifier == nil {
 		return clairerror.ErrNotInitialized{Msg: "NotifierMode requires a notifier service"}
 	}
+	prefix := notifierRoot + apiRoot
+	v1, err := NewNotificationV1(ctx, prefix, t.notifier, t.traceOpt)
+	if err != nil {
+		return fmt.Errorf("notifier configuration: %w", err)
+	}
 
-	t.Handle(NotificationAPIPath,
-		intromw.InstrumentedHandler(NotificationAPIPath, t.traceOpt, NotificationHandler(t.notifier)))
-
-	t.Handle(KeysAPIPath,
-		intromw.InstrumentedHandler(KeysAPIPath, t.traceOpt, gone))
-
-	t.Handle(KeyByIDAPIPath,
-		intromw.InstrumentedHandler(KeyByIDAPIPath+"_KEY", t.traceOpt, gone))
-
+	t.Handle(prefix, v1)
 	return nil
 }
 
